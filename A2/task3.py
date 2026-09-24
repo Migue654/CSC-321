@@ -31,8 +31,7 @@ def decryption(encrypt,d,n):
    #Private Key (d,n)
    # m = c^d mod n
    message = (encrypt**d) % n
-   #decrypted_bytes = message.to_bytes((message.bit_length() + 7) // 8,byteorder="big")
-   #message = decrypted_bytes.decode("utf-8")
+
 
    return message
 
@@ -47,17 +46,20 @@ def encryption(m, e, n):
     return (m**e) % n
 
 
-def Mallary_attack(c, e, n, d):
-    x = 3
+def Mallary_attack(n):
 
-    r_encrypted = encryption(x, e, n)
-
-    c_prime = (c * r_encrypted) % n
-
-    s_prime = decryption(c_prime, d, n)
+    # Mallory chooses c' = 1
+    c_prime = 1
 
     print(f"Mallory modified ciphertext: {c_prime}")
-    print(f"Alice decrypts modified ciphertext to: {s_prime}")
+
+    return c_prime
+
+
+def derive_key(s):
+    s_bytes = s.to_bytes((s.bit_length() + 7) // 8, byteorder="big")
+
+    return SHA256.new(s_bytes).digest()
 
 
 def key_generation():
@@ -82,9 +84,43 @@ def key_generation():
     message = decrypted_bytes.decode("utf-8")
     print(f"decrypted Message : {message}")
 
-    print("Mallary Chooses 3 as her number to attack ")
-    Mallary_attack(encrypt, e, n, d)
+    # ------------------------------------------------------------------------------------------------------------
+    print("\n--- Mallory Attack ---")
+
+    # Mallory sends c' = 1 to Alice
+    c_prime = Mallary_attack(n)
+
+    # Alice decrypts c' using her private key
+    s = decryption(c_prime, d, n)
+
+    print(f"Alice decrypts modified ciphertext to: {s}")
+
+    # Mallory already knows that s = 1
+    mallory_s = 1
+
+    # Both derive the same AES key
+    alice_key = derive_key(s)
+    mallory_key = derive_key(mallory_s)
+
+    print(f"Alice key:   {alice_key.hex()}")
+    print(f"Mallory key: {mallory_key.hex()}")
+    print(f"Keys match: {alice_key == mallory_key}")
+
+    iv = b"1234567890123456"
+
+    cipher = AES.new(alice_key, AES.MODE_CBC, iv)
+
+    c0 = cipher.encrypt(pad(b"Hi Bob!", AES.block_size))
+
+    print(f"AES ciphertext: {c0.hex()}")
+
+    # Mallory decrypts using the key she knows
+    cipher = AES.new(mallory_key, AES.MODE_CBC, iv)
+
+    recovered = unpad(cipher.decrypt(c0), AES.block_size)
+
+    print(f"Mallory recovered message: {recovered.decode('utf-8')}")
+
 
 
 print(key_generation())
-print("\n\n\n  --------------------------------Mallary Attack Starts here----------------------------------------------")
