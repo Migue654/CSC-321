@@ -115,7 +115,7 @@ def find_collision(bits,max_attempts):
             # Calculate end time
             end_time = time.perf_counter()
             elapsed_time = end_time-start_time
-            return seen[hash_value],s,i,elapsed_time
+            return seen[hash_value],base,i,elapsed_time
         else:
             seen[hash_value] = base
 
@@ -150,12 +150,13 @@ def task_1a():
 #  END FUNCTION
 
 def task_1b():
-    print("Task 1b: Strings with Hamming Distance of 1")
+    print("\nTask 1b: Strings with Hamming Distance of 1")
     for i in range(3):
        st1 , st2 = finding_hamming_distance_1()
        h1 = sha256_hash(st1)
        h2= sha256_hash(st2)
        print (f"{st1} ->  {h1} \n {st2} -> {h2}")
+
 
 
 # task_1c():
@@ -177,12 +178,12 @@ def task_1b():
 #  END FUNCTION
 
 def task_1c():
-    print("Task 1c: Finding collisions for truncated hashes")
+    print("\n\nTask 1c: Finding collisions for truncated hashes")
     bits=[]
     time=[]
     inputs=[]
-    for i in range(8, 50, 2):
-        result = find_collision(i, 1000000)
+    for i in range(8, 52    , 2):
+        result = find_collision(i, 100000000)
 
 
         if result[0] is not None:
@@ -191,11 +192,12 @@ def task_1c():
             time.append(elapsed_time)
             inputs.append(num_inputs)
 
-            print(i, base1, base2, num_inputs, elapsed_time)
+            print(f"Bits size :{i}, Hash1 {base1}, Hash2 : {base2}, # inputs {num_inputs}, time: {elapsed_time}")
 
         else:
+            print("\n\n")
             print(f"Timeout for {i} bits")
-    print(bits,time,inputs)
+    print(bits,'\n',time,'\n',inputs)
 
 def task1_main():
  task_1a()
