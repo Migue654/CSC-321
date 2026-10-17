@@ -1,16 +1,15 @@
-from Crypto.Hash import SHA256
 import numpy as np
 from PIL import Image
 import copy
+from io import BytesIO
+import struct, hashlib
 
 
 # helpers
-
 def seed_from_password(password):
-    hash = SHA256.new(bytes(password, "utf-8"))
-    seed = hash.digest()[0 : 64]
+    hash = hashlib.sha256(password.encode("utf-8")).digest()
+    seed = hash[0 : 8]
     return int.from_bytes(seed, "big")
-
 
 def capacity_bytes(height, width, channels=3):
     return (height * width * channels) // 8
@@ -22,36 +21,28 @@ def bytes_to_bits(data):
             bits.append((byte >> i) & 1)
     return bits
 
-# not sure if completely right
 def bits_to_bytes(bits):
-    padding_needed = len(bits) % 8
-    if padding_needed != 0:
-        for i in range (0, padding_needed):
-            bits.append(0)
-    out = []
-    byte = []
+    if len(bits) % 8:
+        bits = bits + [0] * (8 - len(bits) % 8)
+    out = bytearray()
     for i in range(0, len(bits), 8):
-        group = bits[i : i + 8]
-        out.append(group.reverse())
-
-    return out
-
+        byte = 0
+        for b in bits[i : i + 8]:
+            byte = (byte << 1) | b
+        out.append(byte)
+    return bytes(out)
 
 def frame_payload(type, payload_bytes):
     magic = b"STEG"
     if type == "text":
-        tbyte = 0x00
+        tbyte = b"\x00"
     else:
-        tbyte = 0x01
-
-
-    length = len(payload_bytes).to_bytes(4)
-
-    return magic + bytes(tbyte) + length + payload_bytes
+        tbyte = b"\x01"
+    length = struct.pack(">I", len(payload_bytes))
+    return magic + tbyte + length + payload_bytes
 
 
 # task 1 embed
-# not done yet
 def embed(cover_path, out_path, type, payload_bytes, password):
     image = Image.open(cover_path).convert("RGB")
     arr = np.array(image)
@@ -63,13 +54,10 @@ def embed(cover_path, out_path, type, payload_bytes, password):
     bits = bytes_to_bits(framed)
 
     if len(bits) > total_channels:
-        # raise error
-        return "error"
+        raise Exception("payload too large for this cover")
 
     seed = seed_from_password(password)
-
     perm = np.random.default_rng(seed).permutation(total_channels - 1)
-
     out = copy.deepcopy(arr)
 
     for i in range(len(bits)):
@@ -79,23 +67,18 @@ def embed(cover_path, out_path, type, payload_bytes, password):
         y = pixel // width
         x = pixel % width
 
-        old_y = out[0]
-        old_x = out[1]
-        old_ch = out[2]
-
-        # out[y, x, ch] = (  (out[0] | out[1] | out[2]) & 0xFE) | bits[i]
-        # out[0] = ((old_y | old_x | old_ch) & 0xFE) | bits[i]
-        out[0] = (old_y & 0xFE) | bits[i]
-        out[1] = (old_x & 0xFE) | bits[i]
-        out[2] = (old_ch & 0xFE) | bits[i]
-
-        print(out)
+        out[y, x, ch] = (out[y, x, ch] & 0xFE) | bits[i]
 
     Image.fromarray(out).save(out_path)
 
+# text payload
+embed("apple_logo_cover.png", "stego_text.png", "text", b"this is a secret", "password")
 
-#embed("apple_logo_cover.png", "stego_text.png", "text", b"this is a secret", "password")
-
+# image payload
+bio = BytesIO()
+Image.open("laptop_secret.png").convert("RGBA").save(bio, "PNG")
+image_bytes = bio.getvalue()
+embed("apple_logo_cover.png", "stego_laptop.png", "image", image_bytes, "password")
 
 
 def extract(stego_path, password):
@@ -118,17 +101,18 @@ def extract(stego_path, password):
         ch = channel_pos % 3
         y = pixel // width
         x = pixel % width
-        bits.append((y | x | ch) & 1)
+        bits.append(arr[y, x, ch] & 1)
+
 
         if len(bits) == 72:
             header = bits_to_bytes(bits)
-            if header[0 : 4] != "STEG":
+            if header[0 : 4] != b"STEG":
                 return (None, None)
 
-        type = "text" if header[4] == 0 else "image"
-        length = header[5 : 10]
-        total_bits_needed = (9 + length) * 8
-        header_seen = True
+            type = "text" if header[4] == 0 else "image"
+            length = int.from_bytes(header[5 : 9], "big")
+            total_bits_needed = (9 + length) * 8
+            header_seen = True
 
         if header_seen and len(bits) >= total_bits_needed:
             break
@@ -139,4 +123,12 @@ def extract(stego_path, password):
         return ("image", payload_bytes)
 
 
-extract("stego_text.png", "password")
+print(extract("stego_text.png", "password"))
+print(extract("stego_text.png", "wrong_password"))
+
+# image
+type, secret_image = extract("stego_laptop.png", "password")
+Image.open(BytesIO(secret_image)).save("recovered_image.png")
+
+# image: wrong password
+print(extract("stego_laptop.png", "wrong_password"))
