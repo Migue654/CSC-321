@@ -47,10 +47,10 @@ def diffie_Hellman_key_exhange() :
     print(f"this is alices key: {calc_value_alice}" )
 
 
-    bobs_shared = calculation(mod,bobs_num,mod)
+    bobs_shared = calculation(calc_value_alice,bobs_num,mod)
     print(f"this is bobs shared calc: {bobs_shared}" )
 
-    alice_shared = calculation(mod,alice_num,mod)
+    alice_shared = calculation(calc_value_bob,alice_num,mod)
     print(f"this is alices shared calc: {alice_shared}" )
 
 
@@ -215,6 +215,6 @@ def dhke_mitm2():
     pass
 
 
-#print(diffie_Hellman_key_exhange())
+print(diffie_Hellman_key_exhange())
 
-dhke_mitm1()
+#dhke_mitm1()

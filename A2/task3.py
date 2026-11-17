@@ -142,6 +142,7 @@ def key_generation():
 
     # ------------------------------------------------------------------------------------------------------------
     print("\n--- Mallory Attack ---")
+    print("\nAlice is trying to send 'Hi bob' to Bob'")
 
     # Mallory sends c' = 1 to Alice
     c_prime = Mallary_attack(n)
@@ -156,6 +157,7 @@ def key_generation():
     # Both derive the same AES key
     alice_key = derive_key(s)
     mallory_key = derive_key(mallory_s)
+
 
     print(f"Alice key:   {alice_key.hex()}")
     print(f"Mallory key: {mallory_key.hex()}")
